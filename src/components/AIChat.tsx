@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { db } from "../firebase";
 import { collection, getDocs } from "firebase/firestore";
+import resumeData from "../data/resume-data";
 
 interface Message {
   id: string;
@@ -20,6 +21,8 @@ interface PortfolioData {
   skills: any[];
   domains: any[];
   profile: any;
+  certifications: any[];
+  achievements: any[];
 }
 
 interface AIChatProps {
@@ -51,12 +54,14 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
     async function fetchPortfolioData() {
       setIsLoadingData(true);
       try {
-        const [companiesSnap, projectsSnap, skillsSnap, domainsSnap, profileSnap] = await Promise.all([
+        const [companiesSnap, projectsSnap, skillsSnap, domainsSnap, profileSnap, certificationsSnap, achievementsSnap] = await Promise.all([
           getDocs(collection(db, "companies")),
           getDocs(collection(db, "projects")),
           getDocs(collection(db, "skills")),
           getDocs(collection(db, "domains")),
-          getDocs(collection(db, "profile"))
+          getDocs(collection(db, "profile")),
+          getDocs(collection(db, "certifications")),
+          getDocs(collection(db, "achievements"))
         ]);
 
         const companies = companiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -64,8 +69,10 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
         const skills = skillsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const domains = domainsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const profile = profileSnap.docs.length > 0 ? { id: profileSnap.docs[0].id, ...profileSnap.docs[0].data() } : null;
+        const certifications = certificationsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const achievements = achievementsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        setPortfolioData({ companies, projects, skills, domains, profile });
+        setPortfolioData({ companies, projects, skills, domains, profile, certifications, achievements });
       } catch (error) {
         console.error("Error fetching portfolio data:", error);
       } finally {
@@ -97,46 +104,58 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
     }
 
     try {
-      // Get user's name from profile data
-      const userName = portfolioData.profile?.name || 'the user';
-      
-      // Create context from portfolio data
+      // Get user's name from profile data or resumeData
+      const userName = portfolioData.profile?.name || resumeData.personal_information?.name || 'the user';
+
+      // Merge Firestore and resumeData for context
       const context = `
-        You are ${userName}'s AI assistant for their portfolio website. Here is ${userName}'s current portfolio data:
+        You are ${userName}'s AI assistant for their portfolio website. Here is ${userName}'s current portfolio data (from both Firestore and resume):
 
         PROFILE:
-        ${portfolioData.profile ? JSON.stringify(portfolioData.profile, null, 2) : 'No profile data available'}
+        Firestore: ${portfolioData.profile ? JSON.stringify(portfolioData.profile, null, 2) : 'No profile data available'}
+        Resume: ${resumeData.personal_information ? JSON.stringify(resumeData.personal_information, null, 2) : 'No resume personal info'}
+
+        SUMMARY:
+        ${resumeData.summary ? resumeData.summary.join('\n') : 'No summary'}
+
+        EDUCATION:
+        ${resumeData.education ? resumeData.education.map(e => `- ${e.institution}: ${e.degree} (${e.period}${e.cgpa ? ', CGPA: ' + e.cgpa : ''})`).join('\n') : 'No education info'}
+
+        TECHNICAL SKILLS:
+        ${resumeData.technical_skills ? Object.entries(resumeData.technical_skills).map(([cat, arr]) => `${cat}: ${Array.isArray(arr) ? arr.join(', ') : ''}`).join('\n') : 'No skills'}
 
         WORK EXPERIENCE (${portfolioData.companies?.length || 0} companies):
-        ${portfolioData.companies?.map(company => `
-          - ${company.name}: ${company.position} (${company.startDate} - ${company.endDate || 'Present'})
-            Technologies: ${company.technologies?.join(', ')}
-            Description: ${company.description}
-        `).join('\n') || 'No experience data available'}
+        Firestore: ${portfolioData.companies?.map(company => `- ${company.name}: ${company.position} (${company.startDate} - ${company.endDate || 'Present'}) Technologies: ${company.technologies?.join(', ')} Description: ${company.description}`).join('\n') || 'No experience data available'}
+        Resume: ${resumeData.experience ? resumeData.experience.map(exp => `- ${exp.company}: ${exp.role} (${exp.period}) Achievements: ${exp.achievements?.join('; ')}`).join('\n') : 'No resume experience'}
 
         PROJECTS (${portfolioData.projects?.length || 0} projects):
-        ${portfolioData.projects?.map(project => `
-          - ${project.title} (${project.category}${project.featured ? '- Featured' : ''})
-            Technologies: ${project.technologies?.join(', ')}
-            Description: ${project.description}
-            ${project.githubUrl ? `GitHub: ${project.githubUrl}` : ''}
-            ${project.liveUrl ? `Live Demo: ${project.liveUrl}` : ''}
-        `).join('\n') || 'No project data available'}
+        Firestore: ${portfolioData.projects?.map(project => `- ${project.title} (${project.category}${project.featured ? '- Featured' : ''}) Technologies: ${project.technologies?.join(', ')} Description: ${project.description} ${project.githubUrl ? `GitHub: ${project.githubUrl}` : ''} ${project.liveUrl ? `Live Demo: ${project.liveUrl}` : ''}`).join('\n') || 'No project data available'}
+        Resume: ${resumeData.projects ? resumeData.projects.map(p => `- ${p.title}: ${p.description} Tech Stack: ${p.tech_stack?.join(', ')} ${p.recognition ? `Recognition: ${p.recognition}` : ''}`).join('\n') : 'No resume projects'}
 
         SKILLS (${portfolioData.skills?.length || 0} skills):
-        ${portfolioData.skills?.map(skill => `
-          - ${skill.name} (${skill.category}): ${skill.level}%
-        `).join('\n') || 'No skills data available'}
+        Firestore: ${portfolioData.skills?.map(skill => `- ${skill.name} (${skill.category}): ${skill.level}%`).join('\n') || 'No skills data available'}
 
         SPECIALIZED DOMAINS (${portfolioData.domains?.length || 0} domains):
-        ${portfolioData.domains?.map(domain => `
-          - ${domain.title}: ${domain.description}
-        `).join('\n') || 'No domain data available'}
+        Firestore: ${portfolioData.domains?.map(domain => `- ${domain.title}: ${domain.description}`).join('\n') || 'No domain data available'}
+
+        CERTIFICATIONS (${portfolioData.certifications?.length || 0} certifications):
+        Firestore: ${portfolioData.certifications?.map(cert => `- ${cert.name} (${cert.issuer}, ${cert.date}) Category: ${cert.category} Status: ${cert.status} ${cert.credentialId ? `Credential: ${cert.credentialId}` : ''} ${cert.link ? `Link: ${cert.link}` : ''}`).join('\n') || 'No certification data available'}
+        Resume: ${resumeData.certifications ? resumeData.certifications.map(c => `- ${c}`).join('\n') : 'No resume certifications'}
+
+        ACHIEVEMENTS (${portfolioData.achievements?.length || 0} achievements):
+        Firestore: ${portfolioData.achievements?.map(ach => `- ${ach.title} (${ach.category}, ${ach.date}) ${ach.description ? `Description: ${ach.description}` : ''} ${ach.organization ? `Organization: ${ach.organization}` : ''} ${ach.link ? `Link: ${ach.link}` : ''}`).join('\n') || 'No achievement data available'}
+        Resume: ${resumeData.achievements ? resumeData.achievements.map(a => `- ${a}`).join('\n') : 'No resume achievements'}
+
+        PATENTS & PUBLICATIONS:
+        ${resumeData.patents_and_publications ? resumeData.patents_and_publications.map(p => `- ${p.title} (${p.type}, ${p.date}${p.journal ? ', ' + p.journal : ''})`).join('\n') : 'No patents/publications'}
+
+        LEADERSHIP & INVOLVEMENT:
+        ${resumeData.leadership_and_involvement ? resumeData.leadership_and_involvement.map(l => `- ${l.organization}: ${l.role} (${l.period}) Achievements: ${l.achievements?.join('; ')}`).join('\n') : 'No leadership/involvement'}
 
         Instructions:
         - Respond in a friendly, conversational tone
         - Use emojis occasionally to keep it engaging
-        - Provide specific details from the portfolio data when appropriate
+        - Provide specific details from the portfolio and resume data when appropriate
         - Keep responses concise but informative (2-4 sentences)
         - If the user asks about something not in the data, politely direct them to explore the portfolio sections
         - Always be helpful and enthusiastic about ${userName}'s work

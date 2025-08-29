@@ -69,7 +69,7 @@ export function Skills() {
     fetchDomains();
   }, []);
 
-  if (loading) return <div>Loading skills...</div>;
+  if (loading) return <div></div>;
 
   const skillCategories = Array.from(new Set(skills.map(skill => skill.category)));
 

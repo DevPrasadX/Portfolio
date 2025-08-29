@@ -85,7 +85,7 @@ export function Navigation({ onAdminClick }: NavigationProps) {
             </motion.div>
 
             {/* Admin Button */}
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            {/* <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="outline"
                 size="sm"
@@ -95,7 +95,7 @@ export function Navigation({ onAdminClick }: NavigationProps) {
                 <Settings className="h-4 w-4" />
                 sudo admin
               </Button>
-            </motion.div>
+            </motion.div> */}
 
             {/* Mobile menu button */}
             <Button
@@ -129,7 +129,7 @@ export function Navigation({ onAdminClick }: NavigationProps) {
                 {item.label}
               </motion.a>
             ))}
-            <motion.div
+            {/* <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: isOpen ? 1 : 0, x: isOpen ? 0 : -20 }}
               transition={{ delay: navItems.length * 0.05 }}
@@ -147,7 +147,7 @@ export function Navigation({ onAdminClick }: NavigationProps) {
                 <Settings className="h-4 w-4" />
                 sudo admin
               </Button>
-            </motion.div>
+            </motion.div> */}
           </div>
         </motion.div>
       </div>

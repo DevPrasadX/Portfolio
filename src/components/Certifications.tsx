@@ -39,7 +39,7 @@ export function Certifications() {
     fetchCertifications();
   }, []);
 
-  if (loading) return <div>Loading certifications...</div>;
+  if (loading) return <div></div>;
 
   const getCategoryColor = (category: string) => {
     const colors = {

@@ -4,9 +4,68 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Mail, Phone, MapPin, Github, Linkedin, Send, Terminal, MessageSquare } from "lucide-react";
-import { personalInfo } from "../data/portfolio-data";
+import { useEffect, useState } from "react";
+import { db } from "../firebase";
+import { doc, getDoc, collection, addDoc } from "firebase/firestore";
 
 export function Contact() {
+  // All hooks at top level
+  const [contactInfo, setContactInfo] = useState({
+    email: "",
+    phone: "",
+    github: "",
+    linkedin: ""
+  });
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    async function fetchContactInfo() {
+      setLoading(true);
+      const docRef = doc(db, "profile", "main");
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const d = docSnap.data();
+        setContactInfo({
+          email: d.email || "",
+          phone: d.phone || "",
+          github: d.github || "",
+          linkedin: d.linkedin || ""
+        });
+      }
+      setLoading(false);
+    }
+    fetchContactInfo();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setSuccess(false);
+    try {
+      await addDoc(collection(db, "contacts"), {
+        ...form,
+        timestamp: new Date().toISOString(),
+      });
+      setSuccess(true);
+      setForm({ name: "", email: "", subject: "", message: "" });
+    } catch (err) {
+      setSuccess(false);
+      // Optionally handle error
+    }
+    setSubmitting(false);
+  };
+
+  if (loading) {
+    return <div className="py-20 text-center"></div>;
+  }
+
   return (
     <section className="py-20 bg-muted/30 relative overflow-hidden">
       {/* Background grid pattern */}
@@ -33,7 +92,7 @@ export function Contact() {
           </p>
         </motion.div>
 
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12">
+  <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10 lg:gap-12">
           {/* Contact Information */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -41,7 +100,7 @@ export function Contact() {
             transition={{ duration: 0.8 }}
             className="space-y-8"
           >
-            <Card className="bg-card hover:shadow-xl transition-all duration-300">
+            <Card className="bg-card hover:shadow-xl transition-all duration-300 w-full">
               {/* Terminal header */}
               <div className="bg-muted/50 border-b border-border px-4 py-2 flex items-center gap-2">
                 <div className="flex gap-1">
@@ -77,7 +136,7 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground font-mono">email:</p>
-                    <p className="font-mono">{personalInfo.email}</p>
+                    <p className="font-mono">{contactInfo.email}</p>
                   </div>
                 </motion.div>
 
@@ -90,7 +149,7 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground font-mono">phone:</p>
-                    <p className="font-mono">{personalInfo.phone}</p>
+                    <p className="font-mono">{contactInfo.phone}</p>
                   </div>
                 </motion.div>
 
@@ -103,14 +162,14 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground font-mono">location:</p>
-                    <p className="font-mono">{personalInfo.location}</p>
+                    {/* You can fetch location from Firebase if needed */}
                   </div>
                 </motion.div>
               </CardContent>
             </Card>
 
             {/* Social Links */}
-            <Card className="bg-card hover:shadow-xl transition-all duration-300">
+            <Card className="bg-card hover:shadow-xl transition-all duration-300 w-full">
               {/* Terminal header */}
               <div className="bg-muted/50 border-b border-border px-4 py-2 flex items-center gap-2">
                 <div className="flex gap-1">
@@ -129,22 +188,22 @@ export function Contact() {
               <CardContent>
                 <div className="space-y-3">
                   <motion.a
-                    href={personalInfo.github}
+                    href={contactInfo.github}
                     whileHover={{ scale: 1.02, x: 10 }}
                     whileTap={{ scale: 0.98 }}
                     className="flex items-center gap-3 p-3 bg-muted/30 hover:bg-muted/50 rounded-lg transition-colors border border-border"
                   >
                     <Github className="h-5 w-5 text-primary" />
-                    <span className="font-mono">github.com/Prasadpansare</span>
+                    <span className="font-mono">{contactInfo.github.replace('https://github.com/', '')}</span>
                   </motion.a>
                   <motion.a
-                    href={personalInfo.linkedin}
+                    href={contactInfo.linkedin}
                     whileHover={{ scale: 1.02, x: 10 }}
                     whileTap={{ scale: 0.98 }}
                     className="flex items-center gap-3 p-3 bg-muted/30 hover:bg-muted/50 rounded-lg transition-colors border border-border"
                   >
                     <Linkedin className="h-5 w-5 text-primary" />
-                    <span className="font-mono">linkedin.com/in/Prasadpansare</span>
+                    <span className="font-mono">{contactInfo.linkedin.replace('https://linkedin.com/in/', '')}</span>
                   </motion.a>
                 </div>
               </CardContent>
@@ -157,7 +216,7 @@ export function Contact() {
             whileInView={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <Card className="bg-card hover:shadow-xl transition-all duration-300">
+            <Card className="bg-card hover:shadow-xl transition-all duration-300 w-full">
               {/* Terminal header */}
               <div className="bg-muted/50 border-b border-border px-4 py-2 flex items-center gap-2">
                 <div className="flex gap-1">
@@ -184,7 +243,7 @@ export function Contact() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <form className="space-y-6">
+                <form className="space-y-6 w-full" onSubmit={handleSubmit}>
                   <div className="grid md:grid-cols-2 gap-4">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
@@ -193,8 +252,12 @@ export function Contact() {
                     >
                       <label className="block text-sm mb-2 font-mono">const name =</label>
                       <Input 
+                        name="name"
+                        value={form.name}
+                        onChange={handleChange}
                         placeholder="'Your Name'" 
                         className="bg-muted/30 border-border focus:bg-background transition-all font-mono"
+                        required
                       />
                     </motion.div>
                     <motion.div
@@ -204,9 +267,13 @@ export function Contact() {
                     >
                       <label className="block text-sm mb-2 font-mono">const email =</label>
                       <Input 
-                        type="email" 
+                        type="email"
+                        name="email"
+                        value={form.email}
+                        onChange={handleChange}
                         placeholder="'your@email.com'" 
                         className="bg-muted/30 border-border focus:bg-background transition-all font-mono"
+                        required
                       />
                     </motion.div>
                   </div>
@@ -218,8 +285,12 @@ export function Contact() {
                   >
                     <label className="block text-sm mb-2 font-mono">const subject =</label>
                     <Input 
+                      name="subject"
+                      value={form.subject}
+                      onChange={handleChange}
                       placeholder="'Project Collaboration'" 
                       className="bg-muted/30 border-border focus:bg-background transition-all font-mono"
+                      required
                     />
                   </motion.div>
 
@@ -230,9 +301,13 @@ export function Contact() {
                   >
                     <label className="block text-sm mb-2 font-mono">const message =</label>
                     <Textarea 
+                      name="message"
+                      value={form.message}
+                      onChange={handleChange}
                       placeholder="/* &#10;Let's discuss your next project...&#10;Technologies: AWS, Python, AI/ML&#10;Timeline: Q1 2025&#10;*/"
                       rows={6}
                       className="bg-muted/30 border-border focus:bg-background transition-all resize-none font-mono"
+                      required
                     />
                   </motion.div>
 
@@ -247,10 +322,14 @@ export function Contact() {
                       type="submit" 
                       className="w-full text-white font-mono"
                       size="lg"
+                      disabled={submitting}
                     >
                       <Send className="mr-2 h-5 w-5" />
-                      message.send()
+                      {submitting ? "Sending..." : "message.send()"}
                     </Button>
+                    {success && (
+                      <div className="text-green-600 font-mono mt-2">Message stored successfully!</div>
+                    )}
                   </motion.div>
                 </form>
               </CardContent>

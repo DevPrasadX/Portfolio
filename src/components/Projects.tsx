@@ -48,7 +48,7 @@ export function Projects() {
     fetchProjects();
   }, []);
 
-  if (loading) return <div>Loading projects...</div>;
+  if (loading) return <div></div>;
 
   const featuredProjects = projects.filter(p => p.featured);
   const otherProjects = projects.filter(p => !p.featured);

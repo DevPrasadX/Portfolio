@@ -35,7 +35,7 @@ export function Achievements() {
     fetchAchievements();
   }, []);
 
-  if (loading) return <div>Loading achievements...</div>;
+  if (loading) return <div></div>;
 
   const getCategoryColor = (category: string) => {
     const colors = {
