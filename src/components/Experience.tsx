@@ -46,7 +46,7 @@ export function Experience() {
     fetchCompanies();
   }, []);
 
-  if (loading) return <div>Loading experience...</div>;
+  if (loading) return <div></div>;
 
   return (
     <section className="py-20 bg-background scroll-mt-20">

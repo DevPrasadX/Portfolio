@@ -6,6 +6,7 @@ import { Github, Linkedin, Mail, Terminal, Play, FileText, MessageCircle, Bot } 
 import { db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { personalInfo } from "../data/portfolio-data";
+import { RESUME_PDF_URL } from "../data/resume-pdf-url";
 
 // Define the Profile type for TypeScript
 type Profile = {
@@ -50,7 +51,7 @@ export function Hero() {
     "};"
   ] : [];
 
-  if (loading || !profile) return <div>Loading profile...</div>;
+  if (loading || !profile) return <div></div>;
 
   return (
     <section className=" min-h-screen flex items-center justify-center relative overflow-hidden bg-background scroll-mt-20 pt-24">
@@ -205,19 +206,47 @@ export function Hero() {
               transition={{ delay: 0.9 }}
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button size="lg" className="font-mono">
+                <Button
+                  size="lg"
+                  className="font-mono"
+                  onClick={() => {
+                    const contactSection = document.getElementById("contact");
+                    if (contactSection) {
+                      contactSection.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                >
                   <Mail className="mr-2 h-5 w-5" />
                   ./contact_me
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button variant="outline" size="lg" className="font-mono">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="font-mono"
+                  onClick={() => {
+                    window.open("https://github.com/DevPrasadX", "_blank");
+                  }}
+                >
                   <Github className="mr-2 h-5 w-5" />
                   git clone
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button variant="outline" size="lg" className="font-mono">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="font-mono"
+                  onClick={() => {
+                    const link = document.createElement("a");
+                    link.href = RESUME_PDF_URL;
+                    link.download = "Prasad_Resume_new.pdf";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
                   <FileText className="mr-2 h-5 w-5" />
                   cat resume.pdf
                 </Button>
