@@ -73,7 +73,7 @@ export function Contact() {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
       </div>
 
-      <div className="container mx-auto px-6 relative z-10">
+      <div className="container mx-auto px-4 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -100,7 +100,7 @@ export function Contact() {
             transition={{ duration: 0.8 }}
             className="space-y-8"
           >
-            <Card className="bg-card hover:shadow-xl transition-all duration-300 w-full">
+          <Card className="bg-card hover:shadow-xl transition-all duration-300 w-full m-2">
               {/* Terminal header */}
               <div className="bg-muted/50 border-b border-border px-4 py-2 flex items-center gap-2">
                 <div className="flex gap-1">
