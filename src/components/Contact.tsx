@@ -14,7 +14,9 @@ export function Contact() {
     email: "",
     phone: "",
     github: "",
-    linkedin: ""
+    linkedin: "",
+    location: ""
+
   });
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
@@ -32,7 +34,8 @@ export function Contact() {
           email: d.email || "",
           phone: d.phone || "",
           github: d.github || "",
-          linkedin: d.linkedin || ""
+          linkedin: d.linkedin || "",
+          location: d.location || ""  
         });
       }
       setLoading(false);
@@ -162,6 +165,8 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground font-mono">location:</p>
+                                        <p className="font-mono">{contactInfo.location}</p>
+
                     {/* You can fetch location from Firebase if needed */}
                   </div>
                 </motion.div>
@@ -328,7 +333,7 @@ export function Contact() {
                       {submitting ? "Sending..." : "message.send()"}
                     </Button>
                     {success && (
-                      <div className="text-green-600 font-mono mt-2">Message stored successfully!</div>
+                      <div className="text-green-600 font-mono mt-2">Message sent successfully!</div>
                     )}
                   </motion.div>
                 </form>
