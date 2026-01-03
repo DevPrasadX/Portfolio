@@ -30,15 +30,21 @@ interface AIChatProps {
   onToggle: () => void;
 }
 
-// Gemini Pro API configuration
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; // Add this to your .env file
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+// Hugging Face Inference API configuration
+const HUGGINGFACE_API_KEY = import.meta.env.VITE_HUGGINGFACE_API_KEY; // Add this to your .env file
+// Using a smaller, faster model that's more reliable for free tier
+const HUGGINGFACE_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"; // Alternative: "HuggingFaceH4/zephyr-7b-beta" or "google/gemma-7b-it"
+// Use new router endpoint format: /hf-inference/models/{model_id}
+// Use proxy in development to avoid CORS issues, direct API in production (if CORS is enabled)
+const HUGGINGFACE_API_URL = import.meta.env.DEV 
+  ? `/api/huggingface/hf-inference/models/${HUGGINGFACE_MODEL}`
+  : `https://router.huggingface.co/hf-inference/models/${HUGGINGFACE_MODEL}`;
 
 export function AIChat({ isOpen, onToggle }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hey there! 👋 I'm your AI companion powered by Google Gemini. Don't like reading the whole site? No worries! Just ask me anything about your experience, projects, skills, or specialized domains and I'll provide intelligent, contextual responses based on your latest portfolio data.",
+      text: "Hey there! 👋 I'm your AI companion powered by Hugging Face. Don't like reading the whole site? No worries! Just ask me anything about your experience, projects, skills, or specialized domains and I'll provide intelligent, contextual responses based on your latest portfolio data.",
       isUser: false,
       timestamp: new Date(),
     },
@@ -93,17 +99,26 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
     scrollToBottom();
   }, [messages]);
 
-  // Generate AI response using Gemini Pro API
+  // Generate AI response using Hugging Face Inference API
   const generateAIResponse = async (userMessage: string): Promise<string> => {
-    if (!GEMINI_API_KEY) {
+    console.log("🔵 [AI Chat] Starting generateAIResponse");
+    console.log("🔵 [AI Chat] API Key present:", !!HUGGINGFACE_API_KEY);
+    console.log("🔵 [AI Chat] API Key length:", HUGGINGFACE_API_KEY ? HUGGINGFACE_API_KEY.length : 0);
+    console.log("🔵 [AI Chat] API URL:", HUGGINGFACE_API_URL);
+    console.log("🔵 [AI Chat] Model:", HUGGINGFACE_MODEL);
+    
+    if (!HUGGINGFACE_API_KEY) {
+      console.error("❌ [AI Chat] API Key is missing!");
       return "I'm sorry, but the AI service is not properly configured. Please check the API key setup.";
     }
 
     if (!portfolioData) {
+      console.warn("⚠️ [AI Chat] Portfolio data not loaded yet");
       return "I'm still loading Prasad's portfolio data. Please try asking your question again in a moment, or check out the different sections on his portfolio directly!";
     }
 
     try {
+      console.log("🟢 [AI Chat] Portfolio data loaded, proceeding with API call");
       // Get user's name from profile data or resumeData
       const userName = portfolioData.profile?.name || resumeData.personal_information?.name || 'the user';
 
@@ -162,45 +177,200 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
         - Use ${userName}'s actual name when referring to them
       `;
 
-      const response = await fetch(GEMINI_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-goog-api-key": GEMINI_API_KEY,
+      // Format prompt for Mistral Instruct model
+      const prompt = `<s>[INST] ${context}\n\nUser Question: "${userMessage}"\n\nPlease provide a helpful response based on ${userName}'s portfolio data. Keep it concise (2-4 sentences) and friendly. [/INST]`;
+
+      console.log("📤 [AI Chat] Preparing API request...");
+      console.log("📤 [AI Chat] Request URL:", HUGGINGFACE_API_URL);
+      console.log("📤 [AI Chat] Prompt length:", prompt.length);
+      
+      const requestBody = {
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 300,
+          temperature: 0.7,
+          top_p: 0.95,
+          return_full_text: false,
         },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `${context}\n\nUser Question: "${userMessage}"\n\nPlease provide a helpful response based on ${userName}'s portfolio data:`
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 300,
-          },
-        }),
+      };
+      
+      console.log("📤 [AI Chat] Request body:", JSON.stringify(requestBody).substring(0, 200) + "...");
+      console.log("📤 [AI Chat] Headers:", {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${HUGGINGFACE_API_KEY.substring(0, 10)}...` // Only show first 10 chars for security
       });
 
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+      // Retry logic for model loading (cold start)
+      let response;
+      let retries = 3;
+      let waitTime = 2000; // Start with 2 seconds
+      
+      while (retries > 0) {
+        console.log(`📡 [AI Chat] Sending request (${4 - retries}/3 attempt)...`);
+        const requestStartTime = Date.now();
+        
+        try {
+          // In development, use proxy and pass auth via custom header
+          // In production, use direct API call (may need backend proxy for CORS)
+          const headers: HeadersInit = {
+            "Content-Type": "application/json",
+          };
+          
+          if (import.meta.env.DEV) {
+            // Use custom header for proxy to forward
+            headers["X-HF-Authorization"] = `Bearer ${HUGGINGFACE_API_KEY}`;
+          } else {
+            // Direct API call in production
+            headers["Authorization"] = `Bearer ${HUGGINGFACE_API_KEY}`;
+          }
+          
+          response = await fetch(HUGGINGFACE_API_URL, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(requestBody),
+          });
+          
+          const requestDuration = Date.now() - requestStartTime;
+          console.log(`📥 [AI Chat] Response received in ${requestDuration}ms`);
+          console.log("📥 [AI Chat] Response status:", response.status);
+          console.log("📥 [AI Chat] Response statusText:", response.statusText);
+          console.log("📥 [AI Chat] Response headers:", Object.fromEntries(response.headers.entries()));
+        } catch (fetchError) {
+          console.error("❌ [AI Chat] Fetch error:", fetchError);
+          throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
+        }
+
+        if (!response.ok) {
+          let errorText;
+          try {
+            errorText = await response.text();
+            console.error("❌ [AI Chat] Error response body:", errorText);
+          } catch (textError) {
+            console.error("❌ [AI Chat] Could not read error response as text");
+            errorText = "Unknown error";
+          }
+          
+          // Handle model loading error with retry
+          if (response.status === 503 && retries > 1) {
+            retries--;
+            console.log(`⏳ [AI Chat] Model is loading, retrying in ${waitTime/1000} seconds... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            waitTime *= 1.5; // Exponential backoff
+            continue;
+          }
+          
+          let errorMessage = `API request failed: ${response.status}`;
+          
+          if (response.status === 503) {
+            errorMessage = "The model is currently loading. Please try again in a few seconds.";
+          } else if (response.status === 401) {
+            errorMessage = "Invalid API key. Please check your Hugging Face token.";
+          } else if (response.status === 429) {
+            errorMessage = "Rate limit exceeded. Please try again later.";
+          }
+          
+          console.error("❌ [AI Chat] Hugging Face API Error:", {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText
+          });
+          throw new Error(errorMessage);
+        }
+        
+        console.log("✅ [AI Chat] Request successful!");
+        break; // Success, exit retry loop
       }
 
-      const data = await response.json();
+      let data;
+      let responseText;
+      try {
+        responseText = await response.text();
+        console.log("📦 [AI Chat] Raw response text length:", responseText.length);
+        console.log("📦 [AI Chat] Raw response (first 500 chars):", responseText.substring(0, 500));
+        
+        data = JSON.parse(responseText);
+        console.log("✅ [AI Chat] Successfully parsed JSON response");
+        console.log("📦 [AI Chat] Response data type:", Array.isArray(data) ? 'Array' : typeof data);
+        console.log("📦 [AI Chat] Response data keys:", Array.isArray(data) ? `Array[${data.length}]` : Object.keys(data || {}));
+      } catch (jsonError) {
+        console.error("❌ [AI Chat] Failed to parse JSON response:", jsonError);
+        console.error("❌ [AI Chat] Response text:", responseText);
+        throw new Error("Failed to parse API response. Please check your API key and try again.");
+      }
       
-      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        return data.candidates[0].content.parts[0].text;
+      // Check if response contains an error
+      if (data.error) {
+        console.error("❌ [AI Chat] Hugging Face API Error in response:", data.error);
+        if (data.error.includes("loading") || data.error.includes("Model is currently loading")) {
+          throw new Error("The model is currently loading. Please try again in 10-20 seconds.");
+        }
+        throw new Error(`API Error: ${data.error}`);
+      }
+      
+      // Handle different Hugging Face response formats
+      let generatedText = null;
+      
+      console.log("🔍 [AI Chat] Searching for generated text in response...");
+      
+      if (Array.isArray(data)) {
+        console.log("🔍 [AI Chat] Response is an array with", data.length, "items");
+        // Response is an array
+        if (data[0]?.generated_text) {
+          generatedText = data[0].generated_text;
+          console.log("✅ [AI Chat] Found generated_text in array[0]");
+        } else if (data[0]?.text) {
+          generatedText = data[0].text;
+          console.log("✅ [AI Chat] Found text in array[0]");
+        } else if (data[0]?.summary_text) {
+          generatedText = data[0].summary_text;
+          console.log("✅ [AI Chat] Found summary_text in array[0]");
+        } else {
+          console.log("⚠️ [AI Chat] Array[0] structure:", Object.keys(data[0] || {}));
+        }
+      } else if (typeof data === 'object' && data !== null) {
+        console.log("🔍 [AI Chat] Response is an object");
+        // Response is an object
+        if (data.generated_text) {
+          generatedText = data.generated_text;
+          console.log("✅ [AI Chat] Found generated_text in object");
+        } else if (data.text) {
+          generatedText = data.text;
+          console.log("✅ [AI Chat] Found text in object");
+        } else if (data[0]?.generated_text) {
+          generatedText = data[0].generated_text;
+          console.log("✅ [AI Chat] Found generated_text in data[0]");
+        } else if (data.summary_text) {
+          generatedText = data.summary_text;
+          console.log("✅ [AI Chat] Found summary_text in object");
+        } else {
+          console.log("⚠️ [AI Chat] Object keys:", Object.keys(data));
+          console.log("⚠️ [AI Chat] Full response structure:", JSON.stringify(data, null, 2).substring(0, 1000));
+        }
+      }
+      
+      if (generatedText) {
+        console.log("✅ [AI Chat] Generated text found! Length:", generatedText.length);
+        // Clean up the response - remove the prompt if it was included
+        let cleanedText = generatedText.trim();
+        // Remove the prompt template if it appears in the response
+        cleanedText = cleanedText.replace(/<s>\[INST\].*?\[\/INST\]/s, '').trim();
+        // Remove any remaining prompt context
+        if (cleanedText.includes(userMessage)) {
+          cleanedText = cleanedText.split(userMessage).pop()?.trim() || cleanedText;
+        }
+        console.log("✅ [AI Chat] Returning cleaned text");
+        return cleanedText || "I'm having trouble generating a response. Please try rephrasing your question.";
       } else {
-        throw new Error("Invalid response format from Gemini API");
+        console.error("❌ [AI Chat] Unexpected response format. Full response:", JSON.stringify(data, null, 2));
+        throw new Error("Invalid response format from Hugging Face API. Please check the console for details.");
       }
 
         } catch (error) {
-      console.error("Error generating AI response:", error);
+      console.error("❌ [AI Chat] Error in generateAIResponse:", error);
+      console.error("❌ [AI Chat] Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       
       // Fallback to basic response if API fails
       const lowerMessage = userMessage.toLowerCase();
@@ -317,7 +487,7 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
                 <div className="font-mono">
                   <div className="text-sm font-medium">Your AI Companion</div>
                   <div className="text-xs text-muted-foreground">
-                    {isLoadingData ? "Loading data..." : GEMINI_API_KEY ? "Gemini Pro Active" : "API Not Configured"}
+                    {isLoadingData ? "Loading data..." : HUGGINGFACE_API_KEY ? "Hugging Face Active" : "API Not Configured"}
                   </div>
                 </div>
               </div>
@@ -402,11 +572,11 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
                   onKeyPress={handleKeyPress}
                   placeholder="Ask me about Prasad's experience..."
                   className="flex-1 font-mono text-sm"
-                  disabled={isLoadingData || !GEMINI_API_KEY}
+                  disabled={isLoadingData || !HUGGINGFACE_API_KEY}
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!input.trim() || isTyping || isLoadingData || !GEMINI_API_KEY}
+                  disabled={!input.trim() || isTyping || isLoadingData || !HUGGINGFACE_API_KEY}
                   size="sm"
                   className="px-3"
                 >
