@@ -32,13 +32,13 @@ interface AIChatProps {
 
 // Gemini Pro API configuration
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; // Add this to your .env file
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 export function AIChat({ isOpen, onToggle }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hey there! 👋 I'm your AI companion powered by Google Gemini. Don't like reading the whole site? No worries! Just ask me anything about your experience, projects, skills, or specialized domains and I'll provide intelligent, contextual responses based on your latest portfolio data.",
+      text: "Hello! I'm your AI companion powered by Google Gemini. Don't like reading the whole site? No worries! Just ask me anything about your experience, projects, skills, or specialized domains and I'll provide intelligent, contextual responses based on your latest portfolio data.",
       isUser: false,
       timestamp: new Date(),
     },
