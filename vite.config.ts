@@ -56,5 +56,21 @@
     server: {
       port: 3000,
       open: true,
+      proxy: {
+        '/api/huggingface': {
+          target: 'https://router.huggingface.co',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/huggingface/, ''),
+          configure: (proxy, _options) => {
+            proxy.on('proxyReq', (proxyReq, req, _res) => {
+              // Add the Authorization header from the original request
+              const authHeader = req.headers['x-hf-authorization'];
+              if (authHeader) {
+                proxyReq.setHeader('Authorization', authHeader);
+              }
+            });
+          },
+        },
+      },
     },
   });
