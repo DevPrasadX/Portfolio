@@ -30,15 +30,14 @@ interface AIChatProps {
   onToggle: () => void;
 }
 
-// Gemini Pro API configuration
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; // Add this to your .env file
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+// Backend API configuration - uses Vite proxy in development
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 export function AIChat({ isOpen, onToggle }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hey there! 👋 I'm your AI companion powered by Google Gemini. Don't like reading the whole site? No worries! Just ask me anything about your experience, projects, skills, or specialized domains and I'll provide intelligent, contextual responses based on your latest portfolio data.",
+      text: "Hey there! 👋 I'm your AI companion powered by Hugging Face. Don't like reading the whole site? No worries! Just ask me anything about your experience, projects, skills, or specialized domains and I'll provide intelligent, contextual responses based on your latest portfolio data.",
       isUser: false,
       timestamp: new Date(),
     },
@@ -93,12 +92,8 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
     scrollToBottom();
   }, [messages]);
 
-  // Generate AI response using Gemini Pro API
+  // Generate AI response using backend API
   const generateAIResponse = async (userMessage: string): Promise<string> => {
-    if (!GEMINI_API_KEY) {
-      return "I'm sorry, but the AI service is not properly configured. Please check the API key setup.";
-    }
-
     if (!portfolioData) {
       return "I'm still loading Prasad's portfolio data. Please try asking your question again in a moment, or check out the different sections on his portfolio directly!";
     }
@@ -162,42 +157,38 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
         - Use ${userName}'s actual name when referring to them
       `;
 
-      const response = await fetch(GEMINI_API_URL, {
+      // Format the prompt for the model
+      // Using a simple instruction format that works with most models
+      const prompt = `You are ${userName}'s AI assistant for their portfolio website. Based on the following portfolio information, answer the user's question in a friendly and helpful manner.
+
+${context}
+
+User Question: ${userMessage}
+
+Assistant Response:`;
+
+      // Call backend API instead of Hugging Face directly
+      const apiUrl = API_BASE_URL ? `${API_BASE_URL}/api/chat` : '/api/chat';
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-goog-api-key": GEMINI_API_KEY,
         },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `${context}\n\nUser Question: "${userMessage}"\n\nPlease provide a helpful response based on ${userName}'s portfolio data:`
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 300,
-          },
-        }),
+        body: JSON.stringify({ prompt }),
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`API request failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
       }
 
       const data = await response.json();
       
-      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        return data.candidates[0].content.parts[0].text;
-      } else {
-        throw new Error("Invalid response format from Gemini API");
+      if (data.response) {
+        return data.response;
       }
+      
+      throw new Error("Invalid response format from backend API");
 
         } catch (error) {
       console.error("Error generating AI response:", error);
@@ -317,7 +308,7 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
                 <div className="font-mono">
                   <div className="text-sm font-medium">Your AI Companion</div>
                   <div className="text-xs text-muted-foreground">
-                    {isLoadingData ? "Loading data..." : GEMINI_API_KEY ? "Gemini Pro Active" : "API Not Configured"}
+                    {isLoadingData ? "Loading data..." : "Hugging Face Active"}
                   </div>
                 </div>
               </div>
@@ -402,11 +393,11 @@ export function AIChat({ isOpen, onToggle }: AIChatProps) {
                   onKeyPress={handleKeyPress}
                   placeholder="Ask me about Prasad's experience..."
                   className="flex-1 font-mono text-sm"
-                  disabled={isLoadingData || !GEMINI_API_KEY}
+                  disabled={isLoadingData}
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!input.trim() || isTyping || isLoadingData || !GEMINI_API_KEY}
+                  disabled={!input.trim() || isTyping || isLoadingData}
                   size="sm"
                   className="px-3"
                 >
